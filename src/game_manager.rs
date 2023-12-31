@@ -72,12 +72,30 @@ impl GameManager {
         for ci in 0..MAX_COLUMN {
             for ri in 0..MAX_ROW {
                 let pos = Position::new(ri, ci);
-                if let Some(err) = self.is_valid_move(piece, &pos) {
-                    eprintln!("{:?}", err);
-                } else {
+                if let None = self.is_valid_move(piece, &pos) {
                     positions.push(pos);
                 }
             }
+        }
+        if piece.kind == Kind::Pawn {
+            let mut tmp: Vec<Position> = vec![];
+            for pos in positions {
+                if pos.column == piece.column {
+                    tmp.push(pos);
+                    continue;
+                }
+                let pieces = match self.turn {
+                    Player::Black => &self.whites,
+                    Player::White => &self.blacks,
+                };
+                for p in pieces {
+                    if p.column == pos.column && p.row == pos.column {
+                        tmp.push(pos);
+                        break;
+                    }
+                }
+            }
+            positions = tmp;
         }
         positions
     }
@@ -212,14 +230,12 @@ mod tests {
         }
     }
 
+    #[test]
     fn test_move_suggestion() {
         let gm = GameManager::new();
-        let piece = Piece::new(Kind::Rook, 2, 2);
-        let pieces = gm.blacks.iter().chain(gm.whites.iter());
-        let positions: Vec<Position> = pieces
-            .filter(|p| !(p.row == piece.row && p.column == piece.column))
-            .map(Position::from_piece)
-            .collect();
+        let piece = Piece::new(Kind::Pawn, 2, 2);
+
+        println!("{}", gm.move_suggestion(&piece).len());
     }
 
     #[test]
@@ -245,16 +261,30 @@ mod tests {
         let targetb = Position::new(3, 3);
         let gm = GameManager {
             turn: Player::White,
-            whites: vec![Piece::new(Kind::Pawn, targetw.row - 1, targetw.column)],
-            blacks: vec![Piece::new(Kind::Pawn, targetb.row - 1, targetb.column)],
+            whites: vec![
+                Piece::new(Kind::Pawn, targetw.row - 1, targetw.column - 1),
+                Piece::new(Kind::Pawn, targetw.row - 1, targetw.column + 1),
+            ],
+            blacks: vec![
+                Piece::new(Kind::Pawn, targetb.row - 1, targetb.column - 1),
+                Piece::new(Kind::Pawn, targetb.row - 1, targetb.column + 1),
+            ],
         };
+        for target in [&targetw, &targetb] {
+            let piece = Piece::new(Kind::Pawn, target.row - 2, target.column - 2);
+            if !gm.is_piece_blocking(&piece, &target) {
+                panic!("Should be blocking")
+            }
+        }
+
         for target in [targetw, targetb] {
-            let piece = Piece::new(Kind::Pawn, target.row - 2, target.column);
+            let piece = Piece::new(Kind::Pawn, target.row - 2, target.column + 2);
             if !gm.is_piece_blocking(&piece, &target) {
                 panic!("Should be blocking")
             }
         }
     }
+
     #[test]
     fn test_is_piece_blocking_forward_black() {
         let targetw = Position::new(4, 4);
@@ -266,6 +296,36 @@ mod tests {
         };
         for target in [targetw, targetb] {
             let piece = Piece::new(Kind::Pawn, target.row + 2, target.column);
+            if !gm.is_piece_blocking(&piece, &target) {
+                panic!("Should be blocking")
+            }
+        }
+    }
+
+    #[test]
+    fn test_is_piece_blocking_diag_black() {
+        let targetw = Position::new(4, 4);
+        let targetb = Position::new(3, 3);
+        let gm = GameManager {
+            turn: Player::Black,
+            whites: vec![
+                Piece::new(Kind::Pawn, targetw.row + 1, targetw.column - 1),
+                Piece::new(Kind::Pawn, targetw.row + 1, targetw.column + 1),
+            ],
+            blacks: vec![
+                Piece::new(Kind::Pawn, targetb.row + 1, targetb.column - 1),
+                Piece::new(Kind::Pawn, targetb.row + 1, targetb.column + 1),
+            ],
+        };
+        for target in [&targetw, &targetb] {
+            let piece = Piece::new(Kind::Pawn, target.row + 2, target.column - 2);
+            if !gm.is_piece_blocking(&piece, &target) {
+                panic!("Should be blocking")
+            }
+        }
+
+        for target in [targetw, targetb] {
+            let piece = Piece::new(Kind::Pawn, target.row + 2, target.column + 2);
             if !gm.is_piece_blocking(&piece, &target) {
                 panic!("Should be blocking")
             }
