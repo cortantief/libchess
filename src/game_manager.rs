@@ -5,7 +5,7 @@ use crate::{
 use std::cmp;
 
 #[derive(Debug)]
-enum MoveErr {
+pub enum MoveErr {
     SamePosition,
     FriendlyFire,
     InvalidMove,
@@ -39,14 +39,12 @@ impl GameManager {
 
     fn is_valid_move(&self, piece: &Piece, end: &Position) -> Option<MoveErr> {
         let pieces = self.blacks.iter().chain(self.whites.iter());
-        let positions: Vec<Position> = pieces
+        let _positions: Vec<Position> = pieces
             .filter(|p| !(p.row == piece.row && p.column == piece.column))
             .map(Position::from_piece)
             .collect();
 
-        let start = &Position::from_piece(piece);
-
-        if start == end {
+        if piece.row == end.row && piece.column == end.column {
             return Some(MoveErr::SamePosition);
         } else if is_friendly_fire(self, end) {
             return Some(MoveErr::FriendlyFire);
@@ -60,6 +58,7 @@ impl GameManager {
         // piece blocking
         None
     }
+
     pub fn move_piece(&mut self, piece: &Piece, pos: Position) -> Result<(), MoveErr> {
         if let Some(err) = self.is_valid_move(piece, &pos) {
             return Err(err);
@@ -76,27 +75,28 @@ impl GameManager {
                     positions.push(pos);
                 }
             }
-        }
-        if piece.kind == Kind::Pawn {
-            let mut tmp: Vec<Position> = vec![];
-            for pos in positions {
-                if pos.column == piece.column {
-                    tmp.push(pos);
-                    continue;
-                }
-                let pieces = match self.turn {
-                    Player::Black => &self.whites,
-                    Player::White => &self.blacks,
-                };
-                for p in pieces {
-                    if p.column == pos.column && p.row == pos.column {
+            if piece.kind == Kind::Pawn {
+                let mut tmp: Vec<Position> = vec![];
+                for pos in positions {
+                    if pos.column == piece.column {
                         tmp.push(pos);
-                        break;
+                        continue;
+                    }
+                    let pieces = match self.turn {
+                        Player::Black => &self.whites,
+                        Player::White => &self.blacks,
+                    };
+                    for p in pieces {
+                        if p.row == pos.row && p.column == pos.column {
+                            tmp.push(pos);
+                            break;
+                        }
                     }
                 }
+                positions = tmp;
             }
-            positions = tmp;
         }
+
         positions
     }
     fn is_piece_blocking(&self, piece: &Piece, end: &Position) -> bool {
@@ -231,11 +231,250 @@ mod tests {
     }
 
     #[test]
-    fn test_move_suggestion() {
+    fn test_move_suggestion_pawn() {
         let gm = GameManager::new();
         let piece = Piece::new(Kind::Pawn, 2, 2);
+        let expected_pos = Position::new(piece.row + 1, piece.column);
+        let suggestion = gm.move_suggestion(&piece);
+        if !(suggestion.len() == 1 && expected_pos == suggestion[0]) {
+            panic!("Expected position not met {:?}", suggestion)
+        }
+    }
 
-        println!("{}", gm.move_suggestion(&piece).len());
+    #[test]
+    fn test_move_suggestion_pawn_white_at_start() {
+        let gm = GameManager::new();
+        let piece = Piece::new(Kind::Pawn, 1, 2);
+        let expected_pos = [
+            Position::new(piece.row + 1, piece.column),
+            Position::new(piece.row + 2, piece.column),
+        ];
+        let suggestion = gm.move_suggestion(&piece);
+        if expected_pos.len() != suggestion.len() {
+            panic!(
+                "Expected number of position {} not met {}",
+                suggestion.len(),
+                expected_pos.len()
+            )
+        }
+        for e in expected_pos {
+            let mut valid = false;
+            for s in &suggestion {
+                if &e == s {
+                    valid = true;
+                    break;
+                }
+            }
+            if !valid {
+                panic!("Expected position {:?} not met", e)
+            }
+        }
+    }
+
+    #[test]
+    fn test_move_suggestion_rook() {
+        let piece = Piece::new(Kind::Rook, 4, 4);
+        let mut targets = vec![];
+
+        targets.push(Position::new(piece.row - 2, piece.column));
+        targets.push(Position::new(piece.row, piece.column - 2));
+        targets.push(Position::new(piece.row + 2, piece.column));
+        targets.push(Position::new(piece.row, piece.column + 2));
+
+        let gm = GameManager {
+            turn: Player::White,
+            whites: vec![],
+            blacks: targets
+                .iter()
+                .map(|p| Piece::new(Kind::Pawn, p.row, p.column))
+                .collect(),
+        };
+
+        let mut expected_pos: Vec<Position> = vec![];
+        expected_pos.push(Position::new(piece.row - 1, piece.column));
+        expected_pos.push(Position::new(piece.row, piece.column - 1));
+        expected_pos.push(Position::new(piece.row + 1, piece.column));
+        expected_pos.push(Position::new(piece.row, piece.column + 1));
+        for target in &targets {
+            expected_pos.push(target.clone());
+        }
+        let suggestion = gm.move_suggestion(&piece);
+        if expected_pos.len() != suggestion.len() {
+            panic!(
+                "Amount of suggestion not the same as expected, {} got {}",
+                expected_pos.len(),
+                suggestion.len()
+            )
+        }
+        for e in expected_pos {
+            let mut valid = false;
+            for s in &suggestion {
+                if &e == s {
+                    valid = true;
+                    break;
+                }
+            }
+            if !valid {
+                panic!("Not expected target found in suggestion")
+            }
+        }
+    }
+
+    #[test]
+    fn test_move_suggestion_bishop() {
+        let piece = Piece::new(Kind::Bishop, 4, 4);
+        let mut targets = vec![];
+
+        targets.push(Position::new(piece.row - 2, piece.column - 2));
+        targets.push(Position::new(piece.row - 2, piece.column + 2));
+        targets.push(Position::new(piece.row + 2, piece.column + 2));
+        targets.push(Position::new(piece.row + 2, piece.column - 2));
+
+        let gm = GameManager {
+            turn: Player::White,
+            whites: vec![],
+            blacks: targets
+                .iter()
+                .map(|p| Piece::new(Kind::Pawn, p.row, p.column))
+                .collect(),
+        };
+
+        let mut expected_pos: Vec<Position> = vec![];
+        expected_pos.push(Position::new(piece.row - 1, piece.column - 1));
+        expected_pos.push(Position::new(piece.row - 1, piece.column + 1));
+        expected_pos.push(Position::new(piece.row + 1, piece.column + 1));
+        expected_pos.push(Position::new(piece.row + 1, piece.column - 1));
+        for target in &targets {
+            expected_pos.push(target.clone());
+        }
+        let suggestion = gm.move_suggestion(&piece);
+        if expected_pos.len() != suggestion.len() {
+            panic!(
+                "Amount of suggestion not the same as expected, {} got {}",
+                expected_pos.len(),
+                suggestion.len()
+            )
+        }
+        for e in expected_pos {
+            let mut valid = false;
+            for s in &suggestion {
+                if &e == s {
+                    valid = true;
+                    break;
+                }
+            }
+            if !valid {
+                panic!("Not expected target found in suggestion")
+            }
+        }
+    }
+
+    #[test]
+    fn test_move_suggestion_pawn_black_at_start() {
+        let mut gm = GameManager::new();
+        gm.turn = Player::Black;
+        let piece = Piece::new(Kind::Pawn, 6, 2);
+        let expected_pos = [
+            Position::new(piece.row - 1, piece.column),
+            Position::new(piece.row - 2, piece.column),
+        ];
+        let suggestion = gm.move_suggestion(&piece);
+        if expected_pos.len() != suggestion.len() {
+            panic!(
+                "Expected number of position {} not met {}",
+                suggestion.len(),
+                expected_pos.len()
+            )
+        }
+        for e in expected_pos {
+            let mut valid = false;
+            for s in &suggestion {
+                if &e == s {
+                    valid = true;
+                    break;
+                }
+            }
+            if !valid {
+                panic!("Expected position {:?} not met", e)
+            }
+        }
+    }
+    #[test]
+    fn test_move_suggestion_pawn_white_at_start_with_diag() {
+        let piece = Piece::new(Kind::Pawn, 1, 2);
+        let uleft = Piece::new(Kind::Pawn, piece.row + 1, piece.column - 1);
+        let uright = Piece::new(Kind::Pawn, piece.row + 1, piece.column + 1);
+        let gm = GameManager {
+            turn: Player::White,
+            whites: vec![],
+            blacks: vec![uleft.clone(), uright.clone()],
+        };
+
+        let expected_pos = [
+            Position::new(piece.row + 1, piece.column),
+            Position::new(piece.row + 2, piece.column),
+            Position::from_piece(&uleft),
+            Position::from_piece(&uright),
+        ];
+        let suggestion = gm.move_suggestion(&piece);
+        if expected_pos.len() != suggestion.len() {
+            panic!(
+                "Expected number of position {} not met {}",
+                suggestion.len(),
+                expected_pos.len()
+            )
+        }
+        for e in expected_pos {
+            let mut valid = false;
+            for s in &suggestion {
+                if &e == s {
+                    valid = true;
+                    break;
+                }
+            }
+            if !valid {
+                panic!("Expected position {:?} not met", e)
+            }
+        }
+    }
+
+    #[test]
+    fn test_move_suggestion_pawn_black_at_start_with_diag() {
+        let piece = Piece::new(Kind::Pawn, 6, 2);
+        let uleft = Piece::new(Kind::Pawn, piece.row - 1, piece.column - 1);
+        let uright = Piece::new(Kind::Pawn, piece.row - 1, piece.column + 1);
+        let gm = GameManager {
+            turn: Player::Black,
+            whites: vec![uleft.clone(), uright.clone()],
+            blacks: vec![],
+        };
+
+        let expected_pos = [
+            Position::new(piece.row - 1, piece.column),
+            Position::new(piece.row - 2, piece.column),
+            Position::from_piece(&uleft),
+            Position::from_piece(&uright),
+        ];
+        let suggestion = gm.move_suggestion(&piece);
+        if expected_pos.len() != suggestion.len() {
+            panic!(
+                "Expected number of position {} not met {}",
+                suggestion.len(),
+                expected_pos.len()
+            )
+        }
+        for e in expected_pos {
+            let mut valid = false;
+            for s in &suggestion {
+                if &e == s {
+                    valid = true;
+                    break;
+                }
+            }
+            if !valid {
+                panic!("Expected position {:?} not met", e)
+            }
+        }
     }
 
     #[test]

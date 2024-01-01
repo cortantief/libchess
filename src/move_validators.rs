@@ -269,55 +269,6 @@ mod test {
     }
 
     #[test]
-    fn test_is_piece_blocking_diag() {
-        let start = Position::new(4, 4);
-
-        let uleft = Position::new(start.row + 2, start.column - 2);
-        let buleft = Position::new(uleft.row - 1, uleft.column + 1);
-
-        let uright = Position::new(start.row + 2, start.column + 2);
-        let buright = Position::new(uleft.row - 1, uleft.column - 1);
-
-        let dleft = Position::new(start.row - 2, start.column - 2);
-        let bdleft = Position::new(uleft.row + 1, uleft.column + 1);
-
-        let dright = Position::new(start.row - 2, start.column + 2);
-        let bdright = Position::new(uleft.row + 1, uleft.column - 1);
-
-        let positions = vec![buleft, buright, bdleft, bdright];
-
-        for end in &[uleft, uright, dleft, dright] {
-            /*if !is_piece_blocking(&start, end, &positions, MoveType::Diagonal) {
-                panic!("{:?} should not be able to go to {:?}", end, &start)
-            }*/
-        }
-    }
-
-    #[test]
-    fn test_is_piece_blocking_forward() {
-        let start = Position::new(4, 4);
-
-        let forward = Position::new(start.row + 2, start.column);
-        let bforward = Position::new(forward.row - 1, forward.column);
-
-        let left = Position::new(start.row, start.column - 2);
-        let bleft = Position::new(left.row, left.column + 1);
-
-        let right = Position::new(start.row, start.column + 2);
-        let bright = Position::new(right.row, right.column - 1);
-
-        let down = Position::new(start.row - 2, start.column);
-        let bdown = Position::new(down.row + 1, left.column);
-
-        let positions = vec![bforward, bleft, bright, bdown];
-        for end in &[forward, left, right, down] {
-            /*if !is_piece_blocking(&start, end, &positions, MoveType::Straight) {
-                panic!("{:?} should not be able to go to {:?}", end, &start)
-            }*/
-        }
-    }
-
-    #[test]
     fn test_is_pawn_in_start_pos() {
         for ci in 0..MAX_COLUMN {
             for ri in 0..MAX_ROW {

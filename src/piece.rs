@@ -1,5 +1,5 @@
 use std::cmp;
-use std::fmt::Display;
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum Player {
     White,
