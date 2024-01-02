@@ -14,6 +14,7 @@ fn is_valid_pawn_move(piece: &Piece, end: &Position, turn: &Player) -> bool {
     let start = Position::from_piece(piece);
     let direction = start.get_direction(end);
     let in_start_pos = is_pawn_in_start_pos(piece, &turn);
+
     if !direction.is_some() {
         return false;
     }

@@ -37,24 +37,15 @@ impl GameManager {
     }
 
     fn is_valid_move(&self, piece: &Piece, end: &Position) -> Option<MoveErr> {
-        let pieces = self.blacks.iter().chain(self.whites.iter());
-        let _positions: Vec<Position> = pieces
-            .filter(|p| !(p.row == piece.row && p.column == piece.column))
-            .map(Position::from_piece)
-            .collect();
-
         if piece.row == end.row && piece.column == end.column {
             return Some(MoveErr::SamePosition);
         } else if is_friendly_fire(self, end) {
             return Some(MoveErr::FriendlyFire);
-        }
-        if !is_valid_move(piece, end, &self.turn) {
+        } else if !is_valid_move(piece, end, &self.turn) {
             return Some(MoveErr::InvalidMove);
         } else if self.is_piece_blocking(piece, end) {
             return Some(MoveErr::PieceBlocking);
         }
-
-        // piece blocking
         None
     }
 
@@ -67,12 +58,11 @@ impl GameManager {
             Player::White => &mut self.whites,
         };
         for p in pieces {
-            if p.row != piece.row && p.column != piece.column {
-                continue;
+            if p.row == piece.row && p.column == piece.column {
+                p.column = pos.column;
+                p.row = pos.row;
+                return Ok(());
             }
-            p.column = pos.column;
-            p.row = pos.row;
-            return Ok(());
         }
         Err(MoveErr::InvalidMove)
     }
@@ -83,29 +73,29 @@ impl GameManager {
             for ri in 0..MAX_ROW {
                 let pos = Position::new(ri, ci);
                 if let None = self.is_valid_move(piece, &pos) {
-                    positions.push(pos);
+                    positions.push(pos.clone());
                 }
             }
-            if piece.kind == Kind::Pawn {
-                let mut tmp: Vec<Position> = vec![];
-                for pos in positions {
-                    if pos.column == piece.column {
+        }
+        if piece.kind == Kind::Pawn {
+            let mut tmp: Vec<Position> = vec![];
+            for pos in positions {
+                if pos.column == piece.column {
+                    tmp.push(pos);
+                    continue;
+                }
+                let pieces = match self.turn {
+                    Player::Black => &self.whites,
+                    Player::White => &self.blacks,
+                };
+                for p in pieces {
+                    if p.row == pos.row && p.column == pos.column {
                         tmp.push(pos);
-                        continue;
-                    }
-                    let pieces = match self.turn {
-                        Player::Black => &self.whites,
-                        Player::White => &self.blacks,
-                    };
-                    for p in pieces {
-                        if p.row == pos.row && p.column == pos.column {
-                            tmp.push(pos);
-                            break;
-                        }
+                        break;
                     }
                 }
-                positions = tmp;
             }
+            positions = tmp;
         }
 
         positions
@@ -310,6 +300,7 @@ mod tests {
             expected_pos.push(target.clone());
         }
         let suggestion = gm.move_suggestion(&piece);
+        println!("{:?}", suggestion);
         if expected_pos.len() != suggestion.len() {
             panic!(
                 "Amount of suggestion not the same as expected, {} got {}",
@@ -431,8 +422,8 @@ mod tests {
         if expected_pos.len() != suggestion.len() {
             panic!(
                 "Expected number of position {} not met {}",
-                suggestion.len(),
-                expected_pos.len()
+                expected_pos.len(),
+                suggestion.len()
             )
         }
         for e in expected_pos {
