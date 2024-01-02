@@ -67,7 +67,7 @@ impl GameManager {
             Player::White => &mut self.whites,
         };
         for p in pieces {
-            if p.row != piece.row && p.column == piece.column {
+            if p.row != piece.row && p.column != piece.column {
                 continue;
             }
             p.column = pos.column;
