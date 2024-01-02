@@ -53,10 +53,16 @@ impl GameManager {
         if let Some(err) = self.is_valid_move(piece, &pos) {
             return Err(err);
         }
-        let pieces = match self.turn {
-            Player::Black => &mut self.blacks,
-            Player::White => &mut self.whites,
+        let (pieces, enemy) = match self.turn {
+            Player::Black => (&mut self.blacks, &mut self.whites),
+            Player::White => (&mut self.whites, &mut self.blacks),
         };
+        for (i, p) in enemy.iter().enumerate() {
+            if p.row == pos.row && p.column == pos.column {
+                enemy.swap_remove(i);
+                break;
+            }
+        }
         for p in pieces {
             if p.row == piece.row && p.column == piece.column {
                 p.column = pos.column;
