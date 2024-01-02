@@ -2,7 +2,6 @@ use crate::{
     move_validators::is_valid_move,
     piece::{Kind, Piece, Player, Position, MAX_COLUMN, MAX_ROW},
 };
-use std::cmp;
 
 #[derive(Debug)]
 pub enum MoveErr {
@@ -63,7 +62,19 @@ impl GameManager {
         if let Some(err) = self.is_valid_move(piece, &pos) {
             return Err(err);
         }
-        Ok(())
+        let pieces = match self.turn {
+            Player::Black => &mut self.blacks,
+            Player::White => &mut self.whites,
+        };
+        for p in pieces {
+            if p.row != piece.row && p.column == piece.column {
+                continue;
+            }
+            p.column = pos.column;
+            p.row = pos.row;
+            return Ok(());
+        }
+        Err(MoveErr::InvalidMove)
     }
 
     pub fn move_suggestion(&self, piece: &Piece) -> Vec<Position> {
